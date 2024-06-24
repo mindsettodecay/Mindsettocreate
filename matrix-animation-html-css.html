@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Matrix Animation Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            text-align: center;
+            max-width: 1000px;
+            padding: 20px;
+        }
+        #canvasContainer {
+            position: relative;
+            display: inline-block;
+        }
+        canvas {
+            border: 1px solid #000;
+            max-width: 100%;
+            height: auto;
+        }
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+            display: none;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .control-group {
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #presetButtons, #exportButtons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #presetButtons button, #exportButtons button {
+            flex: 1 1 auto;
+        }
+        #characterSetSelect {
+            width: 100%;
+            padding: 5px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="canvasContainer">
+            <canvas id="matrixCanvas"></canvas>
+            <div id="loadingOverlay">Exporting... Please wait.</div>
+        </div>
+        <div class="controls">
+            <div class="control-group">
+                <button id="orientationBtn">Switch to Portrait</button>
+                <button id="toggleAnimationBtn">Pause</button>
+            </div>
+            <div class="control-group">
+                <label for="colorPicker">Color:</label>
+                <input type="color" id="colorPicker" value="#00ff00">
+                <label for="bgColorPicker">Background:</label>
+                <input type="color" id="bgColorPicker" value="#000000">
+            </div>
+            <div class="control-group">
+                <label for="imageUpload">Upload Image:</label>
+                <input type="file" id="imageUpload" accept="image/*">
+                <label for="imageOpacitySlider">Image Opacity:</label>
+                <input type="range" id="imageOpacitySlider" min="0" max="100" value="30">
+            </div>
+            <div class="control-group">
+                <label for="speedSlider">Speed:</label>
+                <input type="range" id="speedSlider" min="1" max="100" value="50">
+                <label for="densitySlider">Density:</label>
+                <input type="range" id="densitySlider" min="1" max="100" value="50">
+            </div>
+            <div class="control-group">
+                <label for="fontSizeSlider">Font Size:</label>
+                <input type="range" id="fontSizeSlider" min="8" max="24" value="10">
+                <label for="fadeSpeedSlider">Fade Speed:</label>
+                <input type="range" id="fadeSpeedSlider" min="1" max="100" value="50">
+            </div>
+            <div class="control-group">
+                <label for="characterSetSelect">Character Set:</label>
+                <select id="characterSetSelect">
+                    <option value="matrix">Matrix</option>
+                    <option value="binary">Binary</option>
+                    <option value="ascii">ASCII</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <input type="text" id="customCharacters" placeholder="Custom characters" style="display: none; width: 100%; margin-top: 5px;">
+            </div>
+        </div>
+        <div id="presetButtons">
+            <button id="classicPreset">Classic Green</button>
+            <button id="blueRainPreset">Blue Rain</button>
+            <button id="fireMatrixPreset">Fire Matrix</button>
+            <button id="rainbowMatrixPreset">Rainbow Matrix</button>
+        </div>
+        <div id="exportButtons">
+            <button id="exportVideoBtn">Export Video</button>
+            <button id="exportGifBtn">Export GIF</button>
+            <button id="exportTwitchBtn">Export Twitch Emote</button>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('matrixCanvas');
+const ctx = canvas.getContext('2d');
+const orientationBtn = document.getElementById('orientationBtn');
+const toggleAnimationBtn = document.getElementById('toggleAnimationBtn');
+const colorPicker = document.getElementById('colorPicker');
+const bgColorPicker = document.getElementById('bgColorPicker');
+const imageUpload = document.getElementById('imageUpload');
+const imageOpacitySlider = document.getElementById('imageOpacitySlider');
+const speedSlider = document.getElementById('speedSlider');
+const densitySlider = document.getElementById('densitySlider');
+const fontSizeSlider = document.getElementById('fontSizeSlider');
+const fadeSpeedSlider = document.getElementById('fadeSpeedSlider');
+const characterSetSelect = document.getElementById('characterSetSelect');
+const customCharacters = document.getElementById('customCharacters');
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+let isLandscape = true;
+let isAnimating = true;
+let customImage = null;
+let color = '#00ff00';
+let bgColor = '#000000';
+let imageOpacity = 0.3;
+let speed = 50;
+let density = 50;
+let fontSize = 10;
+let fadeSpeed = 50;
+let rainbowMode = false;
+let characterSet = 'matrix';
+
+const columns = [];
+let animationFrameId;
+
+function resizeCanvas() {
+    const containerWidth = Math.min(document.body.clientWidth, 1000);
+    if (isLandscape) {
+        canvas.width = containerWidth;
+        canvas.height = containerWidth * 9 / 16;
+    } else {
+        canvas.width = containerWidth * 9 / 16;
+        canvas.height = containerWidth;
+    }
+    initializeColumns();
+}
+
+function initializeColumns() {
+    columns.length = 0;
+    const columnWidth = fontSize;
+    const columnCount = Math.floor(canvas.width / columnWidth);
+    for (let i = 0; i < columnCount; i++) {
+        columns[i] = 0;
+    }
+}
+
+function getRandomCharacter() {
+    switch (characterSet) {
+        case 'matrix':
+            return String.fromCharCode(0x30A0 + Math.random() * 96);
+        case 'binary':
+            return Math.random() < 0.5 ? '0' : '1';
+        case 'ascii':
+            return String.fromCharCode(33 + Math.floor(Math.random() * 94));
+        case 'custom':
+            return customCharacters.value[Math.floor(Math.random() * customCharacters.value.length)];
+        default:
+            return String.fromCharCode(0x30A0 + Math.random() * 96);
+    }
+}
+
+function drawMatrix() {
+    if (!isAnimating) return;
+
+    ctx.fillStyle = bgColor + '0D';  // Add 5% opacity to background color
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = rainbowMode ? getRainbowColor() : color;
+    ctx.font = `${fontSize}px monospace`;
+
+    for (let i = 0; i < columns.length; i++) {
+        const char = getRandomCharacter();
+        const x = i * fontSize;
+        const y = columns[i] * fontSize;
+
+        if (rainbowMode) {
+            ctx.fillStyle = getRainbowColor();
+        }
+        ctx.fillText(char, x, y);
+
+        if (y > canvas.height && Math.random() > 0.99) {
+            columns[i] = 0;
+        } else {
+            columns[i]++;
+        }
+    }
+
+    if (customImage) {
+        ctx.globalAlpha = imageOpacity;
+        ctx.drawImage(customImage, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+    }
+
+    animationFrameId = setTimeout(() => requestAnimationFrame(drawMatrix), 101 - speed);
+}
+
+function getRainbowColor() {
+    const hue = (Date.now() / 20) % 360;
+    return `hsl(${hue}, 100%, 50%)`;
+}
+
+function toggleAnimation() {
+    isAnimating = !isAnimating;
+    toggleAnimationBtn.textContent = isAnimating ? 'Pause' : 'Resume';
+    if (isAnimating) {
+        drawMatrix();
+    } else {
+        clearTimeout(animationFrameId);
+    }
+}
+
+orientationBtn.addEventListener('click', () => {
+    isLandscape = !isLandscape;
+    orientationBtn.textContent = isLandscape ? 'Switch to Portrait' : 'Switch to Landscape';
+    resizeCanvas();
+});
+
+toggleAnimationBtn.addEventListener('click', toggleAnimation);
+
+colorPicker.addEventListener('input', (e) => {
+    color = e.target.value;
+    rainbowMode = false;
+});
+
+bgColorPicker.addEventListener('input', (e) => {
+    bgColor = e.target.value;
+});
+
+imageUpload.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                customImage = img;
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+imageOpacitySlider.addEventListener('input', (e) => {
+    imageOpacity = parseInt(e.target.value) / 100;
+});
+
+speedSlider.addEventListener('input', (e) => {
+    speed = parseInt(e.target.value);
+});
+
+densitySlider.addEventListener('input', (e) => {
+    density = parseInt(e.target.value);
+    initializeColumns();
+});
+
+fontSizeSlider.addEventListener('input', (e) => {
+    fontSize = parseInt(e.target.value);
+    initializeColumns();
+});
+
+fadeSpeedSlider.addEventListener('input', (e) => {
+    fadeSpeed = parseInt(e.target.value);
+});
+
+characterSetSelect.addEventListener('change', (e) => {
+    characterSet = e.target.value;
+    customCharacters.style.display = characterSet === 'custom' ? 'block' : 'none';
+});
+
+// Preset buttons
+document.getElementById('classicPreset').addEventListener('click', () => {
+    colorPicker.value = color = '#00ff00';
+    bgColorPicker.value = bgColor = '#000000';
+    speedSlider.value = speed = 50;
+    densitySlider.value = density = 50;
+    fontSizeSlider.value = fontSize = 10;
+    fadeSpeedSlider.value = fadeSpeed = 50;
+    rainbowMode = false;
+    characterSetSelect.value = characterSet = 'matrix';
+    initializeColumns();
+});
+
+document.getElementById('blueRainPreset').addEventListener('click', () => {
+    colorPicker.value = color = '#0000ff';
+    bgColorPicker.value = bgColor = '#000033';
+    speedSlider.value = speed = 70;
+    densitySlider.value = density = 70;
+    fontSizeSlider.value = fontSize = 14;
+    fadeSpeedSlider.value = fadeSpeed = 30;
+    rainbowMode = false;
+    characterSetSelect.value = characterSet = 'ascii';
+    initializeColumns();
+});
+
+document.getElementById('fireMatrixPreset').addEventListener('click', () => {
+    colorPicker.value = color = '#ff4500';
+    bgColorPicker.value = bgColor = '#1a0500';
+    speedSlider.value = speed = 80;
+    densitySlider.value = density = 60;
+    fontSizeSlider.value = fontSize = 12;
+    fadeSpeedSlider.value = fadeSpeed = 70;
+    rainbowMode = false;
+    characterSetSelect.value = characterSet = 'binary';
+    initializeColumns();
+});
+
+document.getElementById('rainbowMatrixPreset').addEventListener('click', () => {
+    bgColorPicker.value = bgColor = '#000000';
+    speedSlider.value = speed = 60;
+    densitySlider.value = density = 55;
+    fontSizeSlider.value = fontSize = 16;
+    fadeSpeedSlider.value = fadeSpeed = 40;
+    rainbowMode = true;
+    characterSetSelect.value = characterSet = 'matrix';
+    initializeColumns();
+});
+
+// Export functions
+async function exportVideo() {
+    loadingOverlay.style.display = 'flex';
+    const stream = canvas.captureStream(30);
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    const chunks = [];
+
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        download(blob, 'matrix-animation.webm', 'video/webm');
+        loadingOverlay.style.display = 'none';
+    };
+
+    recorder.start();
+    setTimeout(() => recorder.stop(), 5000); // Record for 5 seconds
+}
+
+function exportGif() {
+    loadingOverlay.style.display = 'flex';
+    const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: canvas.width,
+        height: canvas.height
+    });
+
+    let frames = 0;
+    function captureFrame() {
+        gif.addFrame(ctx, {copy: true, delay: 33});
+        frames++;
+        if (frames < 60) { // Capture 2 seconds at 30fps
+            requestAnimationFrame(captureFrame);
+        } else {
+            gif.render();
+        }
+    }
+
+    gif.on('finished', function(blob) {
+        download(blob, 'matrix-animation.gif', 'image/gif');
+        loadingOverlay.style.display = 'none';
+    });
+
+    captureFrame();
+}
+
+function exportTwitchEmote() {
+    loadingOverlay.style.display = 'flex';
+    const sizes = [28, 56, 112]; // Twitch emote sizes
+    const promises = sizes.map(size => {
+        return new Promise(resolve => {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = size;
+            tempCanvas.height = size;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(canvas, 0, 0, size, size);
+            tempCanvas.toBlob(blob => {
+                resolve({size, blob});
+            }, 'image/png');
+        });
+    });
+
+    Promise.all(promises).then(results => {
+        results.forEach(({size, blob}) => {
+            download(blob, `matrix-emote-${size}x${size}.png`, 'image/png');
+        });
+        loadingOverlay.style.display = 'none';
+    });
+}
+
+document.getElementById('exportVideoBtn').addEventListener('click', exportVideo);
+document.getElementById('exportGifBtn').addEventListener('click', exportGif);
+document.getElementById('exportTwitchBtn').addEventListener('click', exportTwitchEmote);
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+drawMatrix();
+    </script>
+</body>
+</html>
