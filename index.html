@@ -19,6 +19,16 @@
             padding: 20px;
             box-sizing: border-box;
             overflow-y: auto;
+            background-image: 
+                radial-gradient(rgba(0, 255, 0, 0.1) 2px, transparent 2px),
+                radial-gradient(rgba(0, 255, 0, 0.1) 2px, transparent 2px);
+            background-size: 50px 50px;
+            background-position: 0 0, 25px 25px;
+            animation: backgroundScroll 5s linear infinite;
+        }
+        @keyframes backgroundScroll {
+            0% { background-position: 0 0, 25px 25px; }
+            100% { background-position: 50px 50px, 75px 75px; }
         }
         #input-line {
             display: flex;
@@ -28,6 +38,7 @@
         #prompt {
             color: #00ff00;
             margin-right: 10px;
+            text-shadow: 0 0 5px #00ff00;
         }
         #user-input {
             background-color: transparent;
@@ -40,21 +51,14 @@
         }
         .output {
             margin-bottom: 10px;
-        }
-        .tool-box {
-            border: 1px solid #00ff00;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-        .tool-box h3 {
-            margin-top: 0;
-            color: #ff00ff;
+            text-shadow: 0 0 3px #00ff00;
         }
         #ascii-art {
             color: #ff00ff;
             font-size: 12px;
             line-height: 1.2;
             margin-bottom: 20px;
+            text-shadow: 0 0 5px #ff00ff;
         }
     </style>
 </head>
@@ -77,10 +81,14 @@
     <script>
         const terminal = document.getElementById('terminal');
         const userInput = document.getElementById('user-input');
+
+        // TOOL CONFIGURATION - EDIT NAMES AND URLS HERE
         const tools = {
-            'overlay': 'Stream Overlay Generator: Create custom overlays for your stream.',
-            'chatbot': 'Chatbot Commander: Manage and customize your stream chatbot.',
-            'alerts': 'Alert Customizer: Design unique alerts for your stream.'
+            'tool1': { name: 'Tool 1', url: 'path/to/tool1.html', description: 'Description for Tool 1' },
+            'tool2': { name: 'Tool 2', url: 'path/to/tool2.html', description: 'Description for Tool 2' },
+            'tool3': { name: 'Tool 3', url: 'path/to/tool3.html', description: 'Description for Tool 3' },
+            'tool4': { name: 'Tool 4', url: 'path/to/tool4.html', description: 'Description for Tool 4' },
+            'tool5': { name: 'Tool 5', url: 'path/to/tool5.html', description: 'Description for Tool 5' },
         };
 
         function addOutput(text) {
@@ -95,10 +103,10 @@
             const cmd = command.toLowerCase().trim();
             if (cmd === 'help') {
                 addOutput('Available commands: help, list, clear, exit');
-                addOutput('Type a tool name for more info: overlay, chatbot, alerts');
+                addOutput('Type a tool name to use it: ' + Object.keys(tools).join(', '));
             } else if (cmd === 'list') {
-                Object.entries(tools).forEach(([name, description]) => {
-                    addOutput(`${name}: ${description}`);
+                Object.entries(tools).forEach(([key, tool]) => {
+                    addOutput(`${key}: ${tool.name} - ${tool.description}`);
                 });
             } else if (cmd === 'clear') {
                 const outputs = terminal.getElementsByClassName('output');
@@ -108,7 +116,8 @@
             } else if (cmd === 'exit') {
                 addOutput('Thanks for using MINDSETTODECAY\'s Hacker Terminal. Goodbye!');
             } else if (tools[cmd]) {
-                addOutput(tools[cmd]);
+                addOutput(`Opening ${tools[cmd].name}...`);
+                window.open(tools[cmd].url, '_blank');
             } else {
                 addOutput(`Command not recognized: ${command}`);
             }
